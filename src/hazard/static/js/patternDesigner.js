@@ -49,18 +49,22 @@ export function initPatternDesigner(appRef) {
         }
     });
 
-    // Pattern size
-    const sizeSelect = document.getElementById("pattern-size-select");
-    sizeSelect.addEventListener("change", () => {
-        const pat = getActivePattern();
-        if (!pat) return;
-        const newSize = parseInt(sizeSelect.value);
-        if (newSize === pat.width && newSize === pat.height) return;
-        if (!confirm(`Resize pattern to ${newSize}x${newSize}? This may crop or expand the pattern.`)) {
-            sizeSelect.value = pat.width;
+    // Tile size (project-level — resizes all patterns)
+    document.getElementById("btn-resize-pattern").addEventListener("click", () => {
+        const grid = app.state.grid;
+        const newW = parseInt(document.getElementById("pattern-width-input").value) || grid.tileWidth;
+        const newH = parseInt(document.getElementById("pattern-height-input").value) || grid.tileHeight;
+        if (newW === grid.tileWidth && newH === grid.tileHeight) return;
+        if (newW < 1 || newH < 1 || newW > 64 || newH > 64) {
+            alert("Dimensions must be between 1 and 64.");
             return;
         }
-        resizePattern(pat, newSize, newSize);
+        if (!confirm(`Resize all tiles to ${newW}\u00d7${newH}? This may crop or expand patterns.`)) {
+            document.getElementById("pattern-width-input").value = grid.tileWidth;
+            document.getElementById("pattern-height-input").value = grid.tileHeight;
+            return;
+        }
+        resizeAllPatterns(newW, newH);
         app.markDirty();
         render();
     });
@@ -71,21 +75,26 @@ function getActivePattern() {
     return app.state.vocabulary.patterns[id] || null;
 }
 
-function resizePattern(pat, newW, newH) {
-    const oldPixels = pat.pixels;
-    const newPixels = [];
-    for (let r = 0; r < newH; r++) {
-        const row = [];
-        for (let c = 0; c < newW; c++) {
-            row.push(r < oldPixels.length && c < oldPixels[0].length ? oldPixels[r][c] : null);
-        }
-        newPixels.push(row);
-    }
-    pat.width = newW;
-    pat.height = newH;
-    pat.pixels = newPixels;
+function resizeAllPatterns(newW, newH) {
     app.state.grid.tileWidth = newW;
     app.state.grid.tileHeight = newH;
+    for (const id of app.state.vocabulary.order) {
+        const pat = app.state.vocabulary.patterns[id];
+        if (!pat) continue;
+        const oldPixels = pat.pixels;
+        const newPixels = [];
+        for (let r = 0; r < newH; r++) {
+            const row = [];
+            for (let c = 0; c < newW; c++) {
+                row.push(r < oldPixels.length && c < oldPixels[0].length ? oldPixels[r][c] : null);
+            }
+            newPixels.push(row);
+        }
+        pat.width = newW;
+        pat.height = newH;
+        pat.pixels = newPixels;
+        app.invalidatePatternCache(id);
+    }
     undoStack = [];
     redoStack = [];
 }
@@ -221,7 +230,8 @@ export function render() {
 
     // Update UI controls
     document.getElementById("pattern-name-input").value = pat.name;
-    document.getElementById("pattern-size-select").value = pat.width;
+    document.getElementById("pattern-width-input").value = app.state.grid.tileWidth;
+    document.getElementById("pattern-height-input").value = app.state.grid.tileHeight;
 
     // Size canvas
     const maxDim = Math.min(

@@ -3,6 +3,8 @@ import { setActivePattern, render as renderDesigner } from "./patternDesigner.js
 
 const THUMB_SIZE = 40;
 let app = null;
+// Map from pattern id -> { el, canvas, nameSpan } for in-place updates
+let thumbElements = new Map();
 
 export function initPatternVocab(appRef) {
     app = appRef;
@@ -81,16 +83,40 @@ function deleteSelected() {
 
 export function renderList() {
     const container = document.getElementById("pattern-list");
-    container.innerHTML = "";
+    const order = app.state.vocabulary.order;
 
-    app.state.vocabulary.order.forEach((id) => {
+    // Check if we can do an in-place update (same set of pattern ids in same order)
+    const canUpdate = thumbElements.size === order.length &&
+        order.every((id, i) => {
+            const el = thumbElements.get(id);
+            return el && container.children[i] === el.el;
+        });
+
+    if (canUpdate) {
+        // Fast path: just repaint canvases, update names and selection
+        for (const id of order) {
+            const entry = thumbElements.get(id);
+            const pat = app.state.vocabulary.patterns[id];
+            if (!entry || !pat) continue;
+            const tCtx = entry.canvas.getContext("2d");
+            drawPatternThumb(tCtx, pat, THUMB_SIZE);
+            entry.nameSpan.textContent = pat.name;
+            entry.el.className = "pattern-thumb" + (id === app.state.ui.selectedPatternId ? " selected" : "");
+        }
+        return;
+    }
+
+    // Full rebuild
+    container.innerHTML = "";
+    thumbElements = new Map();
+
+    order.forEach((id) => {
         const pat = app.state.vocabulary.patterns[id];
         if (!pat) return;
 
         const el = document.createElement("div");
         el.className = "pattern-thumb" + (id === app.state.ui.selectedPatternId ? " selected" : "");
 
-        // Thumbnail canvas
         const thumbCanvas = document.createElement("canvas");
         thumbCanvas.width = THUMB_SIZE;
         thumbCanvas.height = THUMB_SIZE;
@@ -120,12 +146,12 @@ export function renderList() {
         });
 
         container.appendChild(el);
+        thumbElements.set(id, { el, canvas: thumbCanvas, nameSpan });
     });
 }
 
 function drawPatternThumb(ctx, pat, size) {
     const scale = size / Math.max(pat.width, pat.height);
-    // Dark background
     ctx.fillStyle = "#111";
     ctx.fillRect(0, 0, size, size);
     for (let r = 0; r < pat.height; r++) {

@@ -41,10 +41,9 @@
                     <label id="pattern-name-label">
                         Name: <input id="pattern-name-input" type="text" placeholder="Pattern name">
                     </label>
-                    <select id="pattern-size-select" title="Pattern dimensions">
-                        <option value="8">8 &times; 8</option>
-                        <option value="16">16 &times; 16</option>
-                    </select>
+                    <label>W: <input id="pattern-width-input" type="number" min="1" max="64" value="8"></label>
+                    <label>H: <input id="pattern-height-input" type="number" min="1" max="64" value="8"></label>
+                    <button id="btn-resize-pattern" title="Resize pattern">Resize</button>
                     <div id="tool-buttons">
                         <button class="tool-btn active" data-tool="pencil" title="Pencil (P)">&#9998; Pencil</button>
                         <button class="tool-btn" data-tool="eraser" title="Eraser (E)">&#9003; Eraser</button>
