@@ -401,8 +401,14 @@ input[type="color"] {
     gap: 4px;
 }
 #tile-transform-buttons button {
-    font-size: 11px;
-    padding: 3px 6px;
+    font-size: 16px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
 }
 
 /* === Footer === */
