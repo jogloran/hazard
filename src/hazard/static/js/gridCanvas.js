@@ -11,10 +11,18 @@ let stamping = false;
 let hoverCol = -1, hoverRow = -1;
 let spaceHeld = false;
 let showGridLines = true;
-let paletteMode = false; // when true, clicking assigns palette instead of pattern
+
+// Interaction modes: "stamp" | "select"
+let mode = "stamp";
+
+// Selected tile (in select mode)
+let selTileCol = -1, selTileRow = -1;
 
 // Pattern rendering cache: "patternId_paletteId_scale" -> OffscreenCanvas
 const patternCache = new Map();
+
+// Transform encoding: lower 2 bits = rotation (0-3), bit 2 = flipH
+// 0=normal, 1=rot90cw, 2=rot180, 3=rot270cw, 4=flipH, 5=flipH+rot90, 6=flipH+rot180(=flipV), 7=flipH+rot270
 
 export function initGridCanvas(appRef) {
     app = appRef;
@@ -34,8 +42,9 @@ export function initGridCanvas(appRef) {
     document.getElementById("btn-clear-grid").addEventListener("click", clearGrid);
     document.getElementById("btn-toggle-grid").addEventListener("click", toggleGridLines);
 
-    // Palette mode toggle
-    document.getElementById("btn-palette-mode").addEventListener("click", togglePaletteMode);
+    // Mode buttons
+    document.getElementById("btn-mode-stamp").addEventListener("click", () => setMode("stamp"));
+    document.getElementById("btn-mode-select").addEventListener("click", () => setMode("select"));
 
     // Max indices control
     document.getElementById("btn-apply-max-indices").addEventListener("click", applyMaxIndices);
@@ -46,17 +55,108 @@ export function initGridCanvas(appRef) {
     document.getElementById("grid-palette-select").addEventListener("change", onPaletteSelectChange);
     document.getElementById("palette-name-input").addEventListener("input", onPaletteNameChange);
 
+    // Tile info controls
+    document.getElementById("tile-palette-select").addEventListener("change", onTilePaletteChange);
+    document.getElementById("tile-flip-h").addEventListener("click", () => tileTrans("flipH"));
+    document.getElementById("tile-flip-v").addEventListener("click", () => tileTrans("flipV"));
+    document.getElementById("tile-rotate-cw").addEventListener("click", () => tileTrans("rotateCW"));
+    document.getElementById("tile-rotate-ccw").addEventListener("click", () => tileTrans("rotateCCW"));
+    document.getElementById("tile-reset-transform").addEventListener("click", () => tileTrans("reset"));
+
     renderPaletteEditor();
 }
 
-// --- Palette mode ---
+// --- Mode ---
 
-function togglePaletteMode() {
-    paletteMode = !paletteMode;
-    const btn = document.getElementById("btn-palette-mode");
-    btn.classList.toggle("active", paletteMode);
-    btn.textContent = paletteMode ? "Mode: Palette" : "Mode: Stamp";
-    canvas.style.cursor = paletteMode ? "pointer" : "crosshair";
+function setMode(m) {
+    mode = m;
+    if (mode !== "select") {
+        selTileCol = -1;
+        selTileRow = -1;
+    }
+    document.getElementById("btn-mode-stamp").classList.toggle("active", mode === "stamp");
+    document.getElementById("btn-mode-select").classList.toggle("active", mode === "select");
+    canvas.style.cursor = mode === "select" ? "pointer" : "crosshair";
+    updateTileInfo();
+    render();
+}
+
+// --- Tile selection & info ---
+
+function getSelectedCell() {
+    if (selTileCol < 0 || selTileRow < 0) return null;
+    return app.state.grid.cells[selTileRow]?.[selTileCol] || null;
+}
+
+function updateTileInfo() {
+    const panel = document.getElementById("tile-info-panel");
+    const cell = getSelectedCell();
+    if (!cell || mode !== "select") {
+        panel.style.display = "none";
+        return;
+    }
+    panel.style.display = "";
+    const pat = app.state.vocabulary.patterns[cell.patternId];
+    document.getElementById("tile-info-label").textContent =
+        `Tile (${selTileCol}, ${selTileRow})` + (pat ? ` — ${pat.name}` : "");
+
+    // Populate tile palette selector
+    const sel = document.getElementById("tile-palette-select");
+    if (sel.options.length !== app.state.palettes.order.length) {
+        sel.innerHTML = "";
+        for (const palId of app.state.palettes.order) {
+            const pal = app.state.palettes.palettes[palId];
+            if (!pal) continue;
+            const opt = document.createElement("option");
+            opt.value = palId;
+            opt.textContent = pal.name;
+            sel.appendChild(opt);
+        }
+    }
+    sel.value = cell.paletteId;
+
+    // Show transform state
+    const t = cell.transform || 0;
+    const rot = t & 3;
+    const flip = (t >> 2) & 1;
+    document.getElementById("tile-transform-label").textContent =
+        `Rot: ${rot * 90}°${flip ? " FlipH" : ""}`;
+}
+
+function onTilePaletteChange() {
+    const cell = getSelectedCell();
+    if (!cell) return;
+    cell.paletteId = document.getElementById("tile-palette-select").value;
+    patternCache.clear();
+    app.markDirty();
+    render();
+}
+
+function tileTrans(action) {
+    const cell = getSelectedCell();
+    if (!cell) return;
+    let t = cell.transform || 0;
+    let rot = t & 3;
+    let flip = (t >> 2) & 1;
+
+    if (action === "rotateCW") {
+        rot = (rot + 1) & 3;
+    } else if (action === "rotateCCW") {
+        rot = (rot + 3) & 3;
+    } else if (action === "flipH") {
+        flip ^= 1;
+    } else if (action === "flipV") {
+        // flipV = flipH + rot180
+        flip ^= 1;
+        rot = (rot + 2) & 3;
+    } else if (action === "reset") {
+        rot = 0;
+        flip = 0;
+    }
+
+    cell.transform = (flip << 2) | rot;
+    app.markDirty();
+    updateTileInfo();
     render();
 }
 
@@ -72,19 +172,16 @@ function applyMaxIndices() {
     const oldMax = app.state.palettes.maxIndices;
     if (newMax === oldMax) return;
 
-    // Resize all palettes
     for (const palId of app.state.palettes.order) {
         const pal = app.state.palettes.palettes[palId];
         if (!pal) continue;
         if (newMax > pal.colors.length) {
-            // Extend with black
             while (pal.colors.length < newMax) pal.colors.push("#000000");
         } else {
             pal.colors.length = newMax;
         }
     }
 
-    // Clamp any pixel indices that are now out of range
     for (const patId of app.state.vocabulary.order) {
         const pat = app.state.vocabulary.patterns[patId];
         if (!pat) continue;
@@ -126,7 +223,6 @@ function createNewPalette() {
     app.state.palettes.order.push(pal.id);
     app.markDirty();
     renderPaletteEditor();
-    // Select the new palette
     document.getElementById("grid-palette-select").value = pal.id;
     onPaletteSelectChange();
 }
@@ -144,7 +240,6 @@ function deleteSelectedPalette() {
     delete app.state.palettes.palettes[palId];
     app.state.palettes.order = app.state.palettes.order.filter((id) => id !== palId);
 
-    // Clear palette references in grid cells
     const grid = app.state.grid;
     for (let r = 0; r < grid.height; r++) {
         for (let c = 0; c < grid.width; c++) {
@@ -155,7 +250,6 @@ function deleteSelectedPalette() {
         }
     }
 
-    // Update designer preview if needed
     if (app.state.ui.designerPaletteId === palId) {
         app.state.ui.designerPaletteId = app.state.palettes.order[0];
     }
@@ -178,7 +272,6 @@ function onPaletteNameChange() {
     const pal = app.state.palettes.palettes[palId];
     if (!pal) return;
     pal.name = document.getElementById("palette-name-input").value;
-    // Update the option text
     const sel = document.getElementById("grid-palette-select");
     for (const opt of sel.options) {
         if (opt.value === palId) { opt.textContent = pal.name; break; }
@@ -198,7 +291,6 @@ export function renderPaletteEditor() {
         opt.textContent = pal.name;
         sel.appendChild(opt);
     }
-    // Restore selection or default to first
     if (prevVal && app.state.palettes.palettes[prevVal]) {
         sel.value = prevVal;
     } else {
@@ -234,7 +326,6 @@ function renderPaletteColorEditor() {
             patternCache.clear();
             app.markDirty();
             render();
-            // Refresh designer swatches if this is the preview palette
             if (palId === app.state.ui.designerPaletteId) {
                 app.refreshSwatches();
             }
@@ -278,6 +369,9 @@ function clearGrid() {
     if (!confirm("Clear all tiles from the grid?")) return;
     const grid = app.state.grid;
     grid.cells = makeEmptyGrid(grid.width, grid.height);
+    selTileCol = -1;
+    selTileRow = -1;
+    updateTileInfo();
     app.markDirty();
     render();
 }
@@ -320,6 +414,11 @@ function onMouseDown(e) {
     if (e.button === 2) {
         if (inBounds(col, row)) {
             app.state.grid.cells[row][col] = null;
+            if (selTileCol === col && selTileRow === row) {
+                selTileCol = -1;
+                selTileRow = -1;
+                updateTileInfo();
+            }
             app.markDirty();
             render();
         }
@@ -328,19 +427,18 @@ function onMouseDown(e) {
 
     // Left click
     if (e.button === 0 && !spaceHeld) {
-        if (paletteMode) {
-            // Assign palette to existing tile
-            if (inBounds(col, row)) {
-                const cell = app.state.grid.cells[row][col];
-                if (cell) {
-                    cell.paletteId = getSelectedGridPalette();
-                    patternCache.clear();
-                    app.markDirty();
-                    render();
-                }
+        if (mode === "select") {
+            if (inBounds(col, row) && app.state.grid.cells[row][col]) {
+                selTileCol = col;
+                selTileRow = row;
+            } else {
+                selTileCol = -1;
+                selTileRow = -1;
             }
+            updateTileInfo();
+            render();
         } else {
-            // Stamp pattern
+            // Stamp mode
             stamping = true;
             if (inBounds(col, row)) {
                 stampTile(row, col);
@@ -371,11 +469,18 @@ function onMouseMove(e) {
             const pal = app.state.palettes.palettes[cell.paletteId];
             if (pat) info += ` [${pat.name}]`;
             if (pal) info += ` pal: ${pal.name}`;
+            const t = cell.transform || 0;
+            if (t) {
+                const rot = t & 3;
+                const flip = (t >> 2) & 1;
+                info += ` rot:${rot * 90}°`;
+                if (flip) info += " flipH";
+            }
         }
         document.getElementById("cursor-info").textContent = info;
     }
 
-    if (stamping && !paletteMode && inBounds(col, row)) {
+    if (mode === "stamp" && stamping && inBounds(col, row)) {
         stampTile(row, col);
         app.markDirty();
     }
@@ -389,13 +494,14 @@ function stampTile(row, col) {
     app.state.grid.cells[row][col] = {
         patternId: app.state.ui.selectedPatternId,
         paletteId: existing ? existing.paletteId : defaultPalId,
+        transform: 0,
     };
 }
 
 function onMouseUp() {
     panning = false;
     stamping = false;
-    canvas.style.cursor = paletteMode ? "pointer" : "crosshair";
+    canvas.style.cursor = mode === "select" ? "pointer" : "crosshair";
 }
 
 function onMouseLeave() {
@@ -403,7 +509,7 @@ function onMouseLeave() {
     hoverRow = -1;
     panning = false;
     stamping = false;
-    canvas.style.cursor = paletteMode ? "pointer" : "crosshair";
+    canvas.style.cursor = mode === "select" ? "pointer" : "crosshair";
     render();
 }
 
@@ -467,6 +573,26 @@ export function invalidatePatternCache(patternId) {
     }
 }
 
+// --- Transform drawing ---
+
+function drawTile(targetCtx, cached, x, y, tileW, tileH, transform) {
+    if (!transform) {
+        targetCtx.drawImage(cached, x, y);
+        return;
+    }
+    const rot = transform & 3;
+    const flip = (transform >> 2) & 1;
+
+    targetCtx.save();
+    targetCtx.translate(x + tileW / 2, y + tileH / 2);
+    if (rot === 1) targetCtx.rotate(Math.PI / 2);
+    else if (rot === 2) targetCtx.rotate(Math.PI);
+    else if (rot === 3) targetCtx.rotate(3 * Math.PI / 2);
+    if (flip) targetCtx.scale(-1, 1);
+    targetCtx.drawImage(cached, -tileW / 2, -tileH / 2);
+    targetCtx.restore();
+}
+
 // --- Rendering ---
 
 export function render() {
@@ -498,7 +624,8 @@ export function render() {
                 const pat = app.state.vocabulary.patterns[cell.patternId];
                 if (pat) {
                     const cached = getCachedPattern(pat, cell.paletteId);
-                    ctx.drawImage(cached, c * tilePixelW, r * tilePixelH);
+                    drawTile(ctx, cached, c * tilePixelW, r * tilePixelH,
+                             tilePixelW, tilePixelH, cell.transform || 0);
                 }
             }
         }
@@ -522,13 +649,21 @@ export function render() {
         }
     }
 
+    // Selection highlight
+    if (mode === "select" && selTileCol >= 0 && selTileRow >= 0) {
+        ctx.strokeStyle = "rgba(255, 220, 50, 0.9)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(selTileCol * tilePixelW, selTileRow * tilePixelH, tilePixelW, tilePixelH);
+    }
+
     // Hover preview
     if (inBounds(hoverCol, hoverRow) && !panning) {
-        if (paletteMode) {
-            // Highlight tile for palette assignment
-            ctx.strokeStyle = "rgba(255, 200, 50, 0.8)";
-            ctx.lineWidth = 2;
-            ctx.strokeRect(hoverCol * tilePixelW, hoverRow * tilePixelH, tilePixelW, tilePixelH);
+        if (mode === "select") {
+            if (!(hoverCol === selTileCol && hoverRow === selTileRow)) {
+                ctx.strokeStyle = "rgba(255, 200, 50, 0.4)";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(hoverCol * tilePixelW, hoverRow * tilePixelH, tilePixelW, tilePixelH);
+            }
         } else {
             const selId = app.state.ui.selectedPatternId;
             const selPat = app.state.vocabulary.patterns[selId];
@@ -556,21 +691,20 @@ export function handleKeyboard(e) {
     if (e.key === " ") {
         e.preventDefault();
         spaceHeld = e.type === "keydown";
-        canvas.style.cursor = spaceHeld ? "grab" : (paletteMode ? "pointer" : "crosshair");
+        canvas.style.cursor = spaceHeld ? "grab" : (mode === "select" ? "pointer" : "crosshair");
     }
-    if (e.type === "keydown" && e.key === "g") {
-        toggleGridLines();
-    }
-    if (e.type === "keydown" && e.key === "m") {
-        togglePaletteMode();
-    }
+    if (e.type !== "keydown") return;
+    if (e.key === "g") toggleGridLines();
+    if (e.key === "s") setMode(mode === "select" ? "stamp" : "select");
 }
 
 export function exportPNG() {
     const grid = app.state.grid;
+    const tw = grid.tileWidth;
+    const th = grid.tileHeight;
     const exportCanvas = document.createElement("canvas");
-    exportCanvas.width = grid.width * grid.tileWidth;
-    exportCanvas.height = grid.height * grid.tileHeight;
+    exportCanvas.width = grid.width * tw;
+    exportCanvas.height = grid.height * th;
     const eCtx = exportCanvas.getContext("2d");
     eCtx.imageSmoothingEnabled = false;
 
@@ -580,22 +714,27 @@ export function exportPNG() {
             if (cell && cell.patternId) {
                 const pat = app.state.vocabulary.patterns[cell.patternId];
                 if (!pat) continue;
+
+                // Render pattern to a temp canvas at 1:1 scale
+                const tmp = document.createElement("canvas");
+                tmp.width = tw;
+                tmp.height = th;
+                const tmpCtx = tmp.getContext("2d");
+                tmpCtx.imageSmoothingEnabled = false;
                 for (let pr = 0; pr < pat.height; pr++) {
                     for (let pc = 0; pc < pat.width; pc++) {
                         const idx = pat.pixels[pr][pc];
                         if (idx !== null && idx !== undefined) {
                             const color = resolveColor(app.state, cell.paletteId, idx);
                             if (color) {
-                                eCtx.fillStyle = color;
-                                eCtx.fillRect(
-                                    c * grid.tileWidth + pc,
-                                    r * grid.tileHeight + pr,
-                                    1, 1
-                                );
+                                tmpCtx.fillStyle = color;
+                                tmpCtx.fillRect(pc, pr, 1, 1);
                             }
                         }
                     }
                 }
+
+                drawTile(eCtx, tmp, c * tw, r * th, tw, th, cell.transform || 0);
             }
         }
     }

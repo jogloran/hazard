@@ -371,10 +371,38 @@ input[type="color"] {
     background: none;
 }
 
-#btn-palette-mode.active {
+#mode-buttons { display: flex; gap: 4px; }
+#mode-buttons button.active {
     background: var(--accent);
     color: #fff;
     border-color: var(--accent);
+}
+
+/* === Tile Info Panel === */
+#tile-info-panel {
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+#tile-info-label {
+    font-size: 12px;
+    color: var(--text);
+}
+#tile-transform-label {
+    font-size: 12px;
+    color: var(--text-dim);
+}
+#tile-palette-select { width: 100%; }
+#tile-transform-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+#tile-transform-buttons button {
+    font-size: 11px;
+    padding: 3px 6px;
 }
 
 /* === Footer === */

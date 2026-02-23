@@ -94,7 +94,10 @@
                     <button id="btn-apply-grid-size">Apply</button>
                     <button id="btn-clear-grid" title="Clear all tiles">Clear Grid</button>
                     <button id="btn-toggle-grid" title="Toggle grid lines (G)">Grid: On</button>
-                    <button id="btn-palette-mode" title="Toggle palette assignment mode (M)">Mode: Stamp</button>
+                    <div id="mode-buttons">
+                        <button id="btn-mode-stamp" class="active" title="Stamp patterns (S)">Stamp</button>
+                        <button id="btn-mode-select" title="Select tiles (S)">Select</button>
+                    </div>
                     <span id="zoom-display">Zoom: 4x</span>
                 </div>
                 <div id="grid-workspace">
@@ -114,6 +117,22 @@
                         </div>
                         <label>Name: <input type="text" id="palette-name-input" placeholder="Palette name"></label>
                         <div id="palette-color-editor"></div>
+
+                        <div id="tile-info-panel" style="display:none;">
+                            <h3>Selected Tile</h3>
+                            <span id="tile-info-label"></span>
+                            <label>Palette:
+                                <select id="tile-palette-select"></select>
+                            </label>
+                            <span id="tile-transform-label"></span>
+                            <div id="tile-transform-buttons">
+                                <button id="tile-flip-h" title="Flip horizontal">Flip H</button>
+                                <button id="tile-flip-v" title="Flip vertical">Flip V</button>
+                                <button id="tile-rotate-cw" title="Rotate 90° CW">Rot CW</button>
+                                <button id="tile-rotate-ccw" title="Rotate 90° CCW">Rot CCW</button>
+                                <button id="tile-reset-transform" title="Reset transform">Reset</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
