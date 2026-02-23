@@ -1,0 +1,11 @@
+[project]
+name = "hazard"
+version = "0.1.0"
+description = "Tile-based pixel art editor web app"
+requires-python = ">=3.11"
+dependencies = [
+    "flask",
+]
+
+[project.scripts]
+hazard = "hazard.app:main"

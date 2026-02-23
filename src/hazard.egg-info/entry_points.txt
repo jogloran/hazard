@@ -1,0 +1,2 @@
+[console_scripts]
+hazard = hazard.app:main
