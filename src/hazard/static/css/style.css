@@ -200,6 +200,8 @@ select { padding: 3px 4px; }
 #undo-redo { display: flex; gap: 4px; }
 #preset-buttons { display: flex; gap: 4px; }
 #preset-buttons button { font-size: 12px; padding: 4px 8px; }
+#transform-buttons { display: flex; gap: 4px; }
+#transform-buttons button { font-size: 12px; padding: 4px 8px; }
 
 #designer-workspace {
     flex: 1;

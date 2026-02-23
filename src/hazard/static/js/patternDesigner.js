@@ -81,7 +81,17 @@ export function initPatternDesigner(appRef) {
 
     // Presets
     document.getElementById("btn-preset-solid").addEventListener("click", () => applyPreset("solid"));
-    document.getElementById("btn-preset-checker").addEventListener("click", () => applyPreset("checker"));
+    document.getElementById("btn-preset-checker").addEventListener("click", () => applyPreset("checker50"));
+    document.getElementById("btn-preset-checker25").addEventListener("click", () => applyPreset("checker25"));
+    document.getElementById("btn-preset-stripes").addEventListener("click", () => applyPreset("stripes"));
+    document.getElementById("btn-preset-dot50").addEventListener("click", () => applyPreset("dot50"));
+    document.getElementById("btn-preset-dot25").addEventListener("click", () => applyPreset("dot25"));
+
+    // Transforms
+    document.getElementById("btn-flip-h").addEventListener("click", () => applyTransform("flipH"));
+    document.getElementById("btn-flip-v").addEventListener("click", () => applyTransform("flipV"));
+    document.getElementById("btn-rotate-cw").addEventListener("click", () => applyTransform("rotateCW"));
+    document.getElementById("btn-rotate-ccw").addEventListener("click", () => applyTransform("rotateCCW"));
 }
 
 function getActivePattern() {
@@ -118,18 +128,78 @@ function applyPreset(type) {
     if (!pat) return;
     pushUndo();
     const idx = app.state.ui.selectedIndex;
-    if (type === "solid") {
-        for (let r = 0; r < pat.height; r++) {
-            for (let c = 0; c < pat.width; c++) {
-                pat.pixels[r][c] = idx;
-            }
+    for (let r = 0; r < pat.height; r++) {
+        for (let c = 0; c < pat.width; c++) {
+            pat.pixels[r][c] = presetPixel(type, idx, r, c);
         }
-    } else if (type === "checker") {
-        for (let r = 0; r < pat.height; r++) {
-            for (let c = 0; c < pat.width; c++) {
-                pat.pixels[r][c] = (r + c) % 2 === 0 ? idx : null;
-            }
+    }
+    app.markDirty();
+    app.invalidatePatternCache(pat.id);
+    render();
+}
+
+function presetPixel(type, idx, r, c) {
+    switch (type) {
+        case "solid":
+            return idx;
+        case "checker50":
+            // 50% checkerboard: alternating every pixel
+            return (r + c) % 2 === 0 ? idx : null;
+        case "checker25":
+            // 25% checkerboard: one in four pixels
+            return (r % 2 === 0 && c % 2 === 0) ? idx : null;
+        case "stripes":
+            // Vertical stripes: alternating columns
+            return c % 2 === 0 ? idx : null;
+        case "dot50":
+            // 50% dot fill: offset grid every other row
+            return (r % 2 === 0 ? c % 2 === 0 : c % 2 === 1) ? idx : null;
+        case "dot25":
+            // 25% dot fill: every other pixel on every other row
+            return (r % 2 === 0 && c % 2 === 0) ? idx : null;
+        default:
+            return null;
+    }
+}
+
+function applyTransform(type) {
+    const pat = getActivePattern();
+    if (!pat) return;
+    pushUndo();
+    const { width: w, height: h, pixels } = pat;
+
+    if (type === "flipH") {
+        for (let r = 0; r < h; r++) {
+            pixels[r].reverse();
         }
+    } else if (type === "flipV") {
+        pixels.reverse();
+    } else if (type === "rotateCW") {
+        // 90° clockwise: new[c][h-1-r] = old[r][c], new dimensions = w x h -> h x w
+        const newPixels = [];
+        for (let r = 0; r < w; r++) {
+            const row = [];
+            for (let c = 0; c < h; c++) {
+                row.push(pixels[h - 1 - c][r]);
+            }
+            newPixels.push(row);
+        }
+        pat.pixels = newPixels;
+        pat.width = h;
+        pat.height = w;
+    } else if (type === "rotateCCW") {
+        // 90° counter-clockwise: new[w-1-c][r] = old[r][c]
+        const newPixels = [];
+        for (let r = 0; r < w; r++) {
+            const row = [];
+            for (let c = 0; c < h; c++) {
+                row.push(pixels[c][w - 1 - r]);
+            }
+            newPixels.push(row);
+        }
+        pat.pixels = newPixels;
+        pat.width = h;
+        pat.height = w;
     }
     app.markDirty();
     app.invalidatePatternCache(pat.id);

@@ -1,4 +1,4 @@
-import { loadFromLocal, saveToLocal, createDefaultState, migrateState } from "./storage.js";
+import { loadFromLocal, saveToLocal, createDefaultState } from "./storage.js";
 import { initColorPicker, renderSwatches } from "./colorPicker.js";
 import { initPatternDesigner, render as renderDesigner, handleKeyboard as designerKeys } from "./patternDesigner.js";
 import { initPatternVocab, renderList as renderSidebar } from "./patternVocab.js";
@@ -64,10 +64,7 @@ const app = {
 
 function init() {
     // Load or create state
-    let saved = loadFromLocal();
-    if (saved) {
-        saved = migrateState(saved);
-    }
+    const saved = loadFromLocal();
     app.state = saved || createDefaultState();
 
     // Ensure UI defaults exist
@@ -152,7 +149,7 @@ async function loadFromServer() {
         const resp = await fetch("/api/load");
         const data = await resp.json();
         if (data.ok && data.state) {
-            app.state = migrateState(data.state);
+            app.state = data.state;
             saveToLocal(app.state);
             location.reload();
         } else {
@@ -188,9 +185,8 @@ function importJSON(e) {
     const reader = new FileReader();
     reader.onload = () => {
         try {
-            let imported = JSON.parse(reader.result);
+            const imported = JSON.parse(reader.result);
             if (imported.vocabulary && imported.grid) {
-                imported = migrateState(imported);
                 app.state = imported;
                 saveToLocal(app.state);
                 location.reload();
