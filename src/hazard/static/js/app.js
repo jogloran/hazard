@@ -65,7 +65,8 @@ const app = {
 function init() {
     // Load or create state
     const saved = loadFromLocal();
-    app.state = saved || createDefaultState();
+    // Discard incompatible old state that lacks the palette system
+    app.state = (saved && saved.palettes) ? saved : createDefaultState();
 
     // Ensure UI defaults exist
     if (!app.state.ui.currentTool) app.state.ui.currentTool = "pencil";
