@@ -9,6 +9,7 @@ let panStartX = 0, panStartY = 0;
 let stamping = false;
 let hoverCol = -1, hoverRow = -1;
 let spaceHeld = false;
+let showGridLines = true;
 
 // Pattern rendering cache: patternId -> OffscreenCanvas
 const patternCache = new Map();
@@ -29,6 +30,13 @@ export function initGridCanvas(appRef) {
     // Grid dimension controls
     document.getElementById("btn-apply-grid-size").addEventListener("click", applyGridSize);
     document.getElementById("btn-clear-grid").addEventListener("click", clearGrid);
+    document.getElementById("btn-toggle-grid").addEventListener("click", toggleGridLines);
+}
+
+function toggleGridLines() {
+    showGridLines = !showGridLines;
+    document.getElementById("btn-toggle-grid").textContent = "Grid: " + (showGridLines ? "On" : "Off");
+    render();
 }
 
 function applyGridSize() {
@@ -250,20 +258,22 @@ export function render() {
         }
     }
 
-    // Grid lines
-    ctx.strokeStyle = "rgba(255,255,255,0.06)";
-    ctx.lineWidth = 1;
-    for (let c = 0; c <= grid.width; c++) {
-        ctx.beginPath();
-        ctx.moveTo(c * tilePixelW + 0.5, 0);
-        ctx.lineTo(c * tilePixelW + 0.5, totalH);
-        ctx.stroke();
-    }
-    for (let r = 0; r <= grid.height; r++) {
-        ctx.beginPath();
-        ctx.moveTo(0, r * tilePixelH + 0.5);
-        ctx.lineTo(totalW, r * tilePixelH + 0.5);
-        ctx.stroke();
+    // Grid lines (overlay, no gaps between tiles)
+    if (showGridLines) {
+        ctx.strokeStyle = "rgba(255,255,255,0.15)";
+        ctx.lineWidth = 1;
+        for (let c = 0; c <= grid.width; c++) {
+            ctx.beginPath();
+            ctx.moveTo(c * tilePixelW + 0.5, 0);
+            ctx.lineTo(c * tilePixelW + 0.5, totalH);
+            ctx.stroke();
+        }
+        for (let r = 0; r <= grid.height; r++) {
+            ctx.beginPath();
+            ctx.moveTo(0, r * tilePixelH + 0.5);
+            ctx.lineTo(totalW, r * tilePixelH + 0.5);
+            ctx.stroke();
+        }
     }
 
     // Hover preview
@@ -295,6 +305,9 @@ export function handleKeyboard(e) {
         e.preventDefault();
         spaceHeld = e.type === "keydown";
         canvas.style.cursor = spaceHeld ? "grab" : "crosshair";
+    }
+    if (e.type === "keydown" && e.key === "g") {
+        toggleGridLines();
     }
 }
 
