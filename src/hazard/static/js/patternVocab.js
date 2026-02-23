@@ -1,5 +1,6 @@
 import { createBlankPattern } from "./storage.js";
 import { setActivePattern, render as renderDesigner } from "./patternDesigner.js";
+import { getDesignerColor } from "./colorPicker.js";
 
 const THUMB_SIZE = 40;
 let app = null;
@@ -63,7 +64,8 @@ function deleteSelected() {
     const grid = app.state.grid;
     for (let r = 0; r < grid.height; r++) {
         for (let c = 0; c < grid.width; c++) {
-            if (grid.cells[r][c] === id) grid.cells[r][c] = null;
+            const cell = grid.cells[r][c];
+            if (cell && cell.patternId === id) grid.cells[r][c] = null;
         }
     }
 
@@ -93,7 +95,6 @@ export function renderList() {
         });
 
     if (canUpdate) {
-        // Fast path: just repaint canvases, update names and selection
         for (const id of order) {
             const entry = thumbElements.get(id);
             const pat = app.state.vocabulary.patterns[id];
@@ -151,20 +152,23 @@ export function renderList() {
 }
 
 function drawPatternThumb(ctx, pat, size) {
-    const scale = size / Math.max(pat.width, pat.height);
+    const scaleX = size / Math.max(pat.width, pat.height);
     ctx.fillStyle = "#111";
     ctx.fillRect(0, 0, size, size);
     for (let r = 0; r < pat.height; r++) {
         for (let c = 0; c < pat.width; c++) {
-            const color = pat.pixels[r][c];
-            if (color) {
-                ctx.fillStyle = color;
-                ctx.fillRect(
-                    Math.floor(c * scale),
-                    Math.floor(r * scale),
-                    Math.ceil(scale),
-                    Math.ceil(scale)
-                );
+            const idx = pat.pixels[r][c];
+            if (idx !== null && idx !== undefined) {
+                const color = getDesignerColor(app.state, idx);
+                if (color) {
+                    ctx.fillStyle = color;
+                    ctx.fillRect(
+                        Math.floor(c * scaleX),
+                        Math.floor(r * scaleX),
+                        Math.ceil(scaleX),
+                        Math.ceil(scaleX)
+                    );
+                }
             }
         }
     }

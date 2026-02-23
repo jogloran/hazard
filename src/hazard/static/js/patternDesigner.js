@@ -1,4 +1,4 @@
-import { selectColor } from "./colorPicker.js";
+import { selectIndex, getDesignerColor } from "./colorPicker.js";
 
 const MAX_UNDO = 50;
 let canvas, ctx;
@@ -68,6 +68,20 @@ export function initPatternDesigner(appRef) {
         app.markDirty();
         render();
     });
+
+    // Preview palette selector
+    const palSelect = document.getElementById("designer-palette-select");
+    if (palSelect) {
+        palSelect.addEventListener("change", () => {
+            app.state.ui.designerPaletteId = palSelect.value;
+            app.refreshSwatches();
+            render();
+        });
+    }
+
+    // Presets
+    document.getElementById("btn-preset-solid").addEventListener("click", () => applyPreset("solid"));
+    document.getElementById("btn-preset-checker").addEventListener("click", () => applyPreset("checker"));
 }
 
 function getActivePattern() {
@@ -97,6 +111,29 @@ function resizeAllPatterns(newW, newH) {
     }
     undoStack = [];
     redoStack = [];
+}
+
+function applyPreset(type) {
+    const pat = getActivePattern();
+    if (!pat) return;
+    pushUndo();
+    const idx = app.state.ui.selectedIndex;
+    if (type === "solid") {
+        for (let r = 0; r < pat.height; r++) {
+            for (let c = 0; c < pat.width; c++) {
+                pat.pixels[r][c] = idx;
+            }
+        }
+    } else if (type === "checker") {
+        for (let r = 0; r < pat.height; r++) {
+            for (let c = 0; c < pat.width; c++) {
+                pat.pixels[r][c] = (r + c) % 2 === 0 ? idx : null;
+            }
+        }
+    }
+    app.markDirty();
+    app.invalidatePatternCache(pat.id);
+    render();
 }
 
 function pushUndo() {
@@ -151,15 +188,15 @@ function onMouseDown(e) {
     if (col < 0 || col >= pat.width || row < 0 || row >= pat.height) return;
 
     if (e.button === 2 || currentTool === "eyedropper") {
-        // Eyedropper
-        const color = pat.pixels[row][col];
-        if (color) selectColor(app, color);
+        // Eyedropper — pick index from pixel
+        const idx = pat.pixels[row][col];
+        if (idx !== null && idx !== undefined) selectIndex(idx);
         return;
     }
 
     if (currentTool === "fill") {
         pushUndo();
-        floodFill(pat, row, col, app.state.ui.selectedColor);
+        floodFill(pat, row, col, app.state.ui.selectedIndex);
         app.markDirty();
         app.invalidatePatternCache(pat.id);
         render();
@@ -180,7 +217,9 @@ function onMouseMove(e) {
 
     // Update cursor info
     if (col >= 0 && col < pat.width && row >= 0 && row < pat.height) {
-        document.getElementById("cursor-info").textContent = `Pixel: (${col}, ${row})`;
+        const idx = pat.pixels[row][col];
+        const label = idx !== null ? `idx ${idx}` : "empty";
+        document.getElementById("cursor-info").textContent = `Pixel: (${col}, ${row}) [${label}]`;
     }
 
     if (!painting) return;
@@ -199,15 +238,15 @@ function onMouseUp() {
 
 function applyTool(pat, row, col) {
     if (currentTool === "pencil") {
-        pat.pixels[row][col] = app.state.ui.selectedColor;
+        pat.pixels[row][col] = app.state.ui.selectedIndex;
     } else if (currentTool === "eraser") {
         pat.pixels[row][col] = null;
     }
 }
 
-function floodFill(pat, startRow, startCol, fillColor) {
-    const targetColor = pat.pixels[startRow][startCol];
-    if (targetColor === fillColor) return;
+function floodFill(pat, startRow, startCol, fillIndex) {
+    const targetIndex = pat.pixels[startRow][startCol];
+    if (targetIndex === fillIndex) return;
     const stack = [[startRow, startCol]];
     const visited = new Set();
     while (stack.length > 0) {
@@ -215,9 +254,9 @@ function floodFill(pat, startRow, startCol, fillColor) {
         const key = `${r},${c}`;
         if (visited.has(key)) continue;
         if (r < 0 || r >= pat.height || c < 0 || c >= pat.width) continue;
-        if (pat.pixels[r][c] !== targetColor) continue;
+        if (pat.pixels[r][c] !== targetIndex) continue;
         visited.add(key);
-        pat.pixels[r][c] = fillColor;
+        pat.pixels[r][c] = fillIndex;
         stack.push([r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]);
     }
 }
@@ -233,13 +272,15 @@ export function render() {
     document.getElementById("pattern-width-input").value = app.state.grid.tileWidth;
     document.getElementById("pattern-height-input").value = app.state.grid.tileHeight;
 
+    // Update palette selector options
+    updatePaletteSelect();
+
     // Size canvas
     const maxDim = Math.min(
         window.innerWidth - 300,
         window.innerHeight - 250
     );
     cellSize = Math.max(4, Math.floor(Math.min(maxDim / pat.width, maxDim / pat.height)));
-    // Clamp to reasonable size
     cellSize = Math.min(cellSize, 48);
     cellSize = Math.max(cellSize, 16);
 
@@ -256,13 +297,16 @@ export function render() {
         }
     }
 
-    // Draw pixels
+    // Draw pixels using preview palette
     for (let r = 0; r < pat.height; r++) {
         for (let c = 0; c < pat.width; c++) {
-            const color = pat.pixels[r][c];
-            if (color) {
-                ctx.fillStyle = color;
-                ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+            const idx = pat.pixels[r][c];
+            if (idx !== null && idx !== undefined) {
+                const color = getDesignerColor(app.state, idx);
+                if (color) {
+                    ctx.fillStyle = color;
+                    ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+                }
             }
         }
     }
@@ -285,6 +329,25 @@ export function render() {
 
     // Update sidebar thumbnail live
     app.refreshSidebar();
+}
+
+function updatePaletteSelect() {
+    const sel = document.getElementById("designer-palette-select");
+    if (!sel) return;
+    const palettes = app.state.palettes;
+    // Only rebuild if options count differs
+    if (sel.options.length !== palettes.order.length) {
+        sel.innerHTML = "";
+        for (const palId of palettes.order) {
+            const pal = palettes.palettes[palId];
+            if (!pal) continue;
+            const opt = document.createElement("option");
+            opt.value = palId;
+            opt.textContent = pal.name;
+            sel.appendChild(opt);
+        }
+    }
+    sel.value = app.state.ui.designerPaletteId;
 }
 
 export function setActivePattern(patternId) {

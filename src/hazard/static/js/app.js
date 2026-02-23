@@ -1,5 +1,5 @@
-import { loadFromLocal, saveToLocal, createDefaultState } from "./storage.js";
-import { initColorPicker } from "./colorPicker.js";
+import { loadFromLocal, saveToLocal, createDefaultState, migrateState } from "./storage.js";
+import { initColorPicker, renderSwatches } from "./colorPicker.js";
 import { initPatternDesigner, render as renderDesigner, handleKeyboard as designerKeys } from "./patternDesigner.js";
 import { initPatternVocab, renderList as renderSidebar } from "./patternVocab.js";
 import {
@@ -8,6 +8,7 @@ import {
     invalidatePatternCache,
     handleKeyboard as gridKeys,
     exportPNG,
+    renderPaletteEditor,
 } from "./gridCanvas.js";
 
 const app = {
@@ -36,8 +37,14 @@ const app = {
         document.getElementById("btn-designer").classList.toggle("active", viewName === "designer");
         document.getElementById("btn-canvas").classList.toggle("active", viewName === "canvas");
 
-        if (viewName === "designer") renderDesigner();
-        if (viewName === "canvas") renderGrid();
+        if (viewName === "designer") {
+            renderSwatches();
+            renderDesigner();
+        }
+        if (viewName === "canvas") {
+            renderPaletteEditor();
+            renderGrid();
+        }
     },
 
     invalidatePatternCache(patternId) {
@@ -47,17 +54,25 @@ const app = {
     refreshSidebar() {
         renderSidebar();
     },
+
+    refreshSwatches() {
+        renderSwatches();
+    },
 };
 
 // --- Initialization ---
 
 function init() {
     // Load or create state
-    const saved = loadFromLocal();
+    let saved = loadFromLocal();
+    if (saved) {
+        saved = migrateState(saved);
+    }
     app.state = saved || createDefaultState();
 
     // Ensure UI defaults exist
     if (!app.state.ui.currentTool) app.state.ui.currentTool = "pencil";
+    if (app.state.ui.selectedIndex === undefined) app.state.ui.selectedIndex = 0;
 
     // Init modules
     initColorPicker(app, () => {});
@@ -137,7 +152,7 @@ async function loadFromServer() {
         const resp = await fetch("/api/load");
         const data = await resp.json();
         if (data.ok && data.state) {
-            app.state = data.state;
+            app.state = migrateState(data.state);
             saveToLocal(app.state);
             location.reload();
         } else {
@@ -173,8 +188,9 @@ function importJSON(e) {
     const reader = new FileReader();
     reader.onload = () => {
         try {
-            const imported = JSON.parse(reader.result);
+            let imported = JSON.parse(reader.result);
             if (imported.vocabulary && imported.grid) {
+                imported = migrateState(imported);
                 app.state = imported;
                 saveToLocal(app.state);
                 location.reload();
@@ -186,7 +202,6 @@ function importJSON(e) {
         }
     };
     reader.readAsText(file);
-    // Reset so the same file can be re-imported
     e.target.value = "";
 }
 

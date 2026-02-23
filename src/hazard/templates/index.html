@@ -54,6 +54,13 @@
                         <button id="btn-undo" title="Undo (Ctrl+Z)">Undo</button>
                         <button id="btn-redo" title="Redo (Ctrl+Y)">Redo</button>
                     </div>
+                    <div id="preset-buttons">
+                        <button id="btn-preset-solid" title="Fill with selected index">Solid</button>
+                        <button id="btn-preset-checker" title="50% checkerboard with selected index">Checker</button>
+                    </div>
+                    <label>Preview:
+                        <select id="designer-palette-select" title="Preview palette (visualization only)"></select>
+                    </label>
                 </div>
                 <div id="designer-workspace">
                     <div id="designer-canvas-container">
@@ -61,9 +68,8 @@
                     </div>
                     <div id="color-picker">
                         <div id="current-color-wrapper">
-                            <span>Color:</span>
+                            <span id="selected-index-label">Index: 0</span>
                             <div id="current-color-display"></div>
-                            <input type="color" id="custom-color" value="#ff0000">
                         </div>
                         <div id="color-swatches"></div>
                     </div>
@@ -78,10 +84,27 @@
                     <button id="btn-apply-grid-size">Apply</button>
                     <button id="btn-clear-grid" title="Clear all tiles">Clear Grid</button>
                     <button id="btn-toggle-grid" title="Toggle grid lines (G)">Grid: On</button>
+                    <button id="btn-palette-mode" title="Toggle palette assignment mode (M)">Mode: Stamp</button>
                     <span id="zoom-display">Zoom: 4x</span>
                 </div>
-                <div id="grid-canvas-container">
-                    <canvas id="grid-canvas"></canvas>
+                <div id="grid-workspace">
+                    <div id="grid-canvas-container">
+                        <canvas id="grid-canvas"></canvas>
+                    </div>
+                    <div id="palette-panel">
+                        <h3>Palettes</h3>
+                        <div id="palette-controls">
+                            <label>Max indices: <input type="number" id="max-indices-input" min="1" max="256" value="4"></label>
+                            <button id="btn-apply-max-indices">Apply</button>
+                        </div>
+                        <div id="palette-select-row">
+                            <select id="grid-palette-select"></select>
+                            <button id="btn-new-palette" title="Create new palette">+</button>
+                            <button id="btn-del-palette" title="Delete selected palette">&times;</button>
+                        </div>
+                        <label>Name: <input type="text" id="palette-name-input" placeholder="Palette name"></label>
+                        <div id="palette-color-editor"></div>
+                    </div>
                 </div>
             </section>
         </main>

@@ -198,6 +198,8 @@ select { padding: 3px 4px; }
 }
 
 #undo-redo { display: flex; gap: 4px; }
+#preset-buttons { display: flex; gap: 4px; }
+#preset-buttons button { font-size: 12px; padding: 4px 8px; }
 
 #designer-workspace {
     flex: 1;
@@ -278,9 +280,16 @@ input[type="color"] {
     background: var(--bg-lighter);
     border-bottom: 1px solid var(--border);
     font-size: 13px;
+    flex-wrap: wrap;
 }
 #grid-toolbar label { display: flex; align-items: center; gap: 4px; }
 #zoom-display { margin-left: auto; color: var(--text-dim); }
+
+#grid-workspace {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
 
 #grid-canvas-container {
     flex: 1;
@@ -293,6 +302,77 @@ input[type="color"] {
     position: absolute;
     top: 0;
     left: 0;
+}
+
+/* === Palette Panel === */
+#palette-panel {
+    width: 220px;
+    min-width: 220px;
+    background: var(--sidebar-bg);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 8px;
+    overflow-y: auto;
+    font-size: 13px;
+}
+#palette-panel h3 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin: 0;
+}
+#palette-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+#palette-controls label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+#palette-select-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+#palette-select-row select { flex: 1; }
+#palette-select-row button { padding: 3px 8px; font-size: 13px; }
+#palette-name-input { width: 100%; }
+#palette-color-editor {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.palette-color-entry {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.palette-index-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    min-width: 16px;
+    text-align: right;
+}
+.palette-color-entry input[type="color"] {
+    width: 28px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    background: none;
+}
+
+#btn-palette-mode.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
 }
 
 /* === Footer === */
