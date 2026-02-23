@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hazard — Tile Pixel Art Editor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header id="app-header">
+        <h1>Hazard</h1>
+        <nav id="view-nav">
+            <button id="btn-designer" class="view-btn active">Pattern Designer</button>
+            <button id="btn-canvas" class="view-btn">Grid Canvas</button>
+        </nav>
+        <div id="header-actions">
+            <button id="btn-save" title="Save to server">Save</button>
+            <button id="btn-load" title="Load from server">Load</button>
+            <button id="btn-export-json" title="Download project as JSON">Export JSON</button>
+            <button id="btn-export-png" title="Export grid as PNG image">Export PNG</button>
+            <input type="file" id="import-file" accept=".json" hidden>
+            <button id="btn-import" title="Import project from JSON file">Import</button>
+        </div>
+    </header>
+
+    <div id="app-body">
+        <aside id="sidebar">
+            <h2>Patterns</h2>
+            <div id="pattern-list"></div>
+            <div id="sidebar-actions">
+                <button id="btn-new-pattern" title="Create a new blank pattern">+ New</button>
+                <button id="btn-dup-pattern" title="Duplicate selected pattern">Duplicate</button>
+                <button id="btn-del-pattern" title="Delete selected pattern">Delete</button>
+            </div>
+        </aside>
+
+        <main id="main-area">
+            <!-- Pattern Designer View -->
+            <section id="designer-view" class="view">
+                <div id="designer-toolbar">
+                    <label id="pattern-name-label">
+                        Name: <input id="pattern-name-input" type="text" placeholder="Pattern name">
+                    </label>
+                    <select id="pattern-size-select" title="Pattern dimensions">
+                        <option value="8">8 &times; 8</option>
+                        <option value="16">16 &times; 16</option>
+                    </select>
+                    <div id="tool-buttons">
+                        <button class="tool-btn active" data-tool="pencil" title="Pencil (P)">&#9998; Pencil</button>
+                        <button class="tool-btn" data-tool="eraser" title="Eraser (E)">&#9003; Eraser</button>
+                        <button class="tool-btn" data-tool="fill" title="Fill (F)">&#9724; Fill</button>
+                        <button class="tool-btn" data-tool="eyedropper" title="Eyedropper (I)">&#9738; Pick</button>
+                    </div>
+                    <div id="undo-redo">
+                        <button id="btn-undo" title="Undo (Ctrl+Z)">Undo</button>
+                        <button id="btn-redo" title="Redo (Ctrl+Y)">Redo</button>
+                    </div>
+                </div>
+                <div id="designer-workspace">
+                    <div id="designer-canvas-container">
+                        <canvas id="designer-canvas"></canvas>
+                    </div>
+                    <div id="color-picker">
+                        <div id="current-color-wrapper">
+                            <span>Color:</span>
+                            <div id="current-color-display"></div>
+                            <input type="color" id="custom-color" value="#ff0000">
+                        </div>
+                        <div id="color-swatches"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Grid Canvas View -->
+            <section id="canvas-view" class="view" style="display:none;">
+                <div id="grid-toolbar">
+                    <label>Cols: <input type="number" id="grid-cols" min="1" max="100" value="20"></label>
+                    <label>Rows: <input type="number" id="grid-rows" min="1" max="100" value="15"></label>
+                    <button id="btn-apply-grid-size">Apply</button>
+                    <button id="btn-clear-grid" title="Clear all tiles">Clear Grid</button>
+                    <span id="zoom-display">Zoom: 4x</span>
+                </div>
+                <div id="grid-canvas-container">
+                    <canvas id="grid-canvas"></canvas>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer id="app-footer">
+        <span id="save-status">Ready</span>
+        <span id="cursor-info"></span>
+    </footer>
+
+    <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
