@@ -201,7 +201,16 @@ select { padding: 3px 4px; }
 #preset-buttons { display: flex; gap: 4px; }
 #preset-buttons button { font-size: 12px; padding: 4px 8px; }
 #transform-buttons { display: flex; gap: 4px; }
-#transform-buttons button { font-size: 12px; padding: 4px 8px; }
+#transform-buttons button {
+    font-size: 16px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
 
 #designer-workspace {
     flex: 1;
