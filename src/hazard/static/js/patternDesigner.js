@@ -142,12 +142,16 @@ function presetPixel(type, idx, r, c) {
     switch (type) {
         case "solid":
             return idx;
-        case "checker50":
-            // 50% checkerboard: alternating every pixel
-            return (r + c) % 2 === 0 ? idx : null;
-        case "checker25":
-            // 25% checkerboard: one in four pixels
-            return (r % 2 === 0 && c % 2 === 0) ? idx : null;
+        case "checker50": {
+            // 50% block checkerboard: alternating 2x2 solid blocks
+            const br = Math.floor(r / 2), bc = Math.floor(c / 2);
+            return (br + bc) % 2 === 0 ? idx : null;
+        }
+        case "checker25": {
+            // 25% block checkerboard: every other block-row has alternating 2x2 blocks
+            const br2 = Math.floor(r / 2), bc2 = Math.floor(c / 2);
+            return (br2 % 2 === 0 && bc2 % 2 === 0) ? idx : null;
+        }
         case "stripes":
             // Vertical stripes: alternating columns
             return c % 2 === 0 ? idx : null;
