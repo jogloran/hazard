@@ -272,6 +272,9 @@ export function render() {
         ctx.lineTo(pat.width * cellSize, i * cellSize + 0.5);
         ctx.stroke();
     }
+
+    // Update sidebar thumbnail live
+    app.refreshSidebar();
 }
 
 export function setActivePattern(patternId) {
