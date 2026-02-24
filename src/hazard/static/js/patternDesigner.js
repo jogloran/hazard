@@ -130,7 +130,7 @@ function applyPreset(type) {
     const idx = app.state.ui.selectedIndex;
     for (let r = 0; r < pat.height; r++) {
         for (let c = 0; c < pat.width; c++) {
-            pat.pixels[r][c] = presetPixel(type, idx, r, c);
+            pat.pixels[r][c] = presetPixel(type, idx, r, c, pat.height, pat.width);
         }
     }
     app.markDirty();
@@ -138,18 +138,20 @@ function applyPreset(type) {
     render();
 }
 
-function presetPixel(type, idx, r, c) {
+function presetPixel(type, idx, r, c, h, w) {
     switch (type) {
         case "solid":
             return idx;
         case "checker50": {
-            // 50% block checkerboard: alternating 2x2 solid blocks
-            const br = Math.floor(r / 2), bc = Math.floor(c / 2);
+            // 50% block checkerboard: half-tile blocks → 4 big blocks
+            const bs50r = Math.max(1, h / 2), bs50c = Math.max(1, w / 2);
+            const br = Math.floor(r / bs50r), bc = Math.floor(c / bs50c);
             return (br + bc) % 2 === 0 ? idx : null;
         }
         case "checker25": {
-            // 2x2 block checkerboard with offset alternating rows
-            const br2 = Math.floor(r / 2), bc2 = Math.floor(c / 2);
+            // 25% block checkerboard: quarter-tile blocks → 8 big blocks
+            const bs25r = Math.max(1, h / 4), bs25c = Math.max(1, w / 4);
+            const br2 = Math.floor(r / bs25r), bc2 = Math.floor(c / bs25c);
             return (br2 + bc2) % 2 === 0 ? idx : null;
         }
         case "stripes":
