@@ -148,9 +148,9 @@ function presetPixel(type, idx, r, c) {
             return (br + bc) % 2 === 0 ? idx : null;
         }
         case "checker25": {
-            // 25% block checkerboard: every other block-row has alternating 2x2 blocks
+            // 2x2 block checkerboard with offset alternating rows
             const br2 = Math.floor(r / 2), bc2 = Math.floor(c / 2);
-            return (br2 % 2 === 0 && bc2 % 2 === 0) ? idx : null;
+            return (br2 + bc2) % 2 === 0 ? idx : null;
         }
         case "stripes":
             // Vertical stripes: alternating columns
