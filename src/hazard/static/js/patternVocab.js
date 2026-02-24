@@ -134,11 +134,6 @@ export function renderList() {
 
         el.addEventListener("click", () => {
             app.state.ui.selectedPatternId = id;
-            renderList();
-        });
-
-        el.addEventListener("dblclick", () => {
-            app.state.ui.selectedPatternId = id;
             app.state.ui.designerPatternId = id;
             setActivePattern(id);
             app.switchView("designer");
