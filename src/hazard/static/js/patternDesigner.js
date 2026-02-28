@@ -49,22 +49,23 @@ export function initPatternDesigner(appRef) {
         }
     });
 
-    // Tile size (project-level — resizes all patterns)
+    // Resize current pattern
     document.getElementById("btn-resize-pattern").addEventListener("click", () => {
-        const grid = app.state.grid;
-        const newW = parseInt(document.getElementById("pattern-width-input").value) || grid.tileWidth;
-        const newH = parseInt(document.getElementById("pattern-height-input").value) || grid.tileHeight;
-        if (newW === grid.tileWidth && newH === grid.tileHeight) return;
+        const pat = getActivePattern();
+        if (!pat) return;
+        const newW = parseInt(document.getElementById("pattern-width-input").value) || pat.width;
+        const newH = parseInt(document.getElementById("pattern-height-input").value) || pat.height;
+        if (newW === pat.width && newH === pat.height) return;
         if (newW < 1 || newH < 1 || newW > 64 || newH > 64) {
             alert("Dimensions must be between 1 and 64.");
             return;
         }
-        if (!confirm(`Resize all tiles to ${newW}\u00d7${newH}? This may crop or expand patterns.`)) {
-            document.getElementById("pattern-width-input").value = grid.tileWidth;
-            document.getElementById("pattern-height-input").value = grid.tileHeight;
+        if (!confirm(`Resize "${pat.name}" to ${newW}\u00d7${newH}? This may crop or expand pixels.`)) {
+            document.getElementById("pattern-width-input").value = pat.width;
+            document.getElementById("pattern-height-input").value = pat.height;
             return;
         }
-        resizeAllPatterns(newW, newH);
+        resizePattern(pat, newW, newH);
         app.markDirty();
         render();
     });
@@ -99,26 +100,20 @@ function getActivePattern() {
     return app.state.vocabulary.patterns[id] || null;
 }
 
-function resizeAllPatterns(newW, newH) {
-    app.state.grid.tileWidth = newW;
-    app.state.grid.tileHeight = newH;
-    for (const id of app.state.vocabulary.order) {
-        const pat = app.state.vocabulary.patterns[id];
-        if (!pat) continue;
-        const oldPixels = pat.pixels;
-        const newPixels = [];
-        for (let r = 0; r < newH; r++) {
-            const row = [];
-            for (let c = 0; c < newW; c++) {
-                row.push(r < oldPixels.length && c < oldPixels[0].length ? oldPixels[r][c] : null);
-            }
-            newPixels.push(row);
+function resizePattern(pat, newW, newH) {
+    const oldPixels = pat.pixels;
+    const newPixels = [];
+    for (let r = 0; r < newH; r++) {
+        const row = [];
+        for (let c = 0; c < newW; c++) {
+            row.push(r < oldPixels.length && c < oldPixels[0].length ? oldPixels[r][c] : null);
         }
-        pat.width = newW;
-        pat.height = newH;
-        pat.pixels = newPixels;
-        app.invalidatePatternCache(id);
+        newPixels.push(row);
     }
+    pat.width = newW;
+    pat.height = newH;
+    pat.pixels = newPixels;
+    app.invalidatePatternCache(pat.id);
     undoStack = [];
     redoStack = [];
 }
@@ -213,7 +208,11 @@ function applyTransform(type) {
 function pushUndo() {
     const pat = getActivePattern();
     if (!pat) return;
-    undoStack.push(JSON.parse(JSON.stringify(pat.pixels)));
+    undoStack.push({
+        pixels: JSON.parse(JSON.stringify(pat.pixels)),
+        width: pat.width,
+        height: pat.height,
+    });
     if (undoStack.length > MAX_UNDO) undoStack.shift();
     redoStack = [];
 }
@@ -221,8 +220,15 @@ function pushUndo() {
 function undo() {
     const pat = getActivePattern();
     if (!pat || undoStack.length === 0) return;
-    redoStack.push(JSON.parse(JSON.stringify(pat.pixels)));
-    pat.pixels = undoStack.pop();
+    redoStack.push({
+        pixels: JSON.parse(JSON.stringify(pat.pixels)),
+        width: pat.width,
+        height: pat.height,
+    });
+    const entry = undoStack.pop();
+    pat.pixels = entry.pixels;
+    pat.width = entry.width;
+    pat.height = entry.height;
     app.markDirty();
     app.invalidatePatternCache(pat.id);
     render();
@@ -231,8 +237,15 @@ function undo() {
 function redo() {
     const pat = getActivePattern();
     if (!pat || redoStack.length === 0) return;
-    undoStack.push(JSON.parse(JSON.stringify(pat.pixels)));
-    pat.pixels = redoStack.pop();
+    undoStack.push({
+        pixels: JSON.parse(JSON.stringify(pat.pixels)),
+        width: pat.width,
+        height: pat.height,
+    });
+    const entry = redoStack.pop();
+    pat.pixels = entry.pixels;
+    pat.width = entry.width;
+    pat.height = entry.height;
     app.markDirty();
     app.invalidatePatternCache(pat.id);
     render();
@@ -343,8 +356,8 @@ export function render() {
 
     // Update UI controls
     document.getElementById("pattern-name-input").value = pat.name;
-    document.getElementById("pattern-width-input").value = app.state.grid.tileWidth;
-    document.getElementById("pattern-height-input").value = app.state.grid.tileHeight;
+    document.getElementById("pattern-width-input").value = pat.width;
+    document.getElementById("pattern-height-input").value = pat.height;
 
     // Update palette selector options
     updatePaletteSelect();

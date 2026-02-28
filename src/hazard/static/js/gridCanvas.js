@@ -39,6 +39,7 @@ export function initGridCanvas(appRef) {
 
     // Grid dimension controls
     document.getElementById("btn-apply-grid-size").addEventListener("click", applyGridSize);
+    document.getElementById("btn-apply-tile-size").addEventListener("click", applyTileSize);
     document.getElementById("btn-clear-grid").addEventListener("click", clearGrid);
     document.getElementById("btn-toggle-grid").addEventListener("click", toggleGridLines);
 
@@ -365,6 +366,19 @@ function applyGridSize() {
     render();
 }
 
+function applyTileSize() {
+    const newTW = parseInt(document.getElementById("grid-tile-width").value) || 8;
+    const newTH = parseInt(document.getElementById("grid-tile-height").value) || 8;
+    if (newTW < 1 || newTH < 1 || newTW > 64 || newTH > 64) {
+        alert("Tile dimensions must be between 1 and 64.");
+        return;
+    }
+    app.state.grid.tileWidth = newTW;
+    app.state.grid.tileHeight = newTH;
+    app.markDirty();
+    render();
+}
+
 function clearGrid() {
     if (!confirm("Clear all tiles from the grid?")) return;
     const grid = app.state.grid;
@@ -575,21 +589,23 @@ export function invalidatePatternCache(patternId) {
 
 // --- Transform drawing ---
 
-function drawTile(targetCtx, cached, x, y, tileW, tileH, transform) {
+function drawTile(targetCtx, cached, x, y, transform) {
     if (!transform) {
         targetCtx.drawImage(cached, x, y);
         return;
     }
     const rot = transform & 3;
     const flip = (transform >> 2) & 1;
+    const w = cached.width;
+    const h = cached.height;
 
     targetCtx.save();
-    targetCtx.translate(x + tileW / 2, y + tileH / 2);
+    targetCtx.translate(x + w / 2, y + h / 2);
     if (rot === 1) targetCtx.rotate(Math.PI / 2);
     else if (rot === 2) targetCtx.rotate(Math.PI);
     else if (rot === 3) targetCtx.rotate(3 * Math.PI / 2);
     if (flip) targetCtx.scale(-1, 1);
-    targetCtx.drawImage(cached, -tileW / 2, -tileH / 2);
+    targetCtx.drawImage(cached, -w / 2, -h / 2);
     targetCtx.restore();
 }
 
@@ -625,7 +641,7 @@ export function render() {
                 if (pat) {
                     const cached = getCachedPattern(pat, cell.paletteId);
                     drawTile(ctx, cached, c * tilePixelW, r * tilePixelH,
-                             tilePixelW, tilePixelH, cell.transform || 0);
+                             cell.transform || 0);
                 }
             }
         }
@@ -651,18 +667,26 @@ export function render() {
 
     // Selection highlight
     if (mode === "select" && selTileCol >= 0 && selTileRow >= 0) {
+        const selCell = grid.cells[selTileRow]?.[selTileCol];
+        const selPat = selCell ? app.state.vocabulary.patterns[selCell.patternId] : null;
+        const selW = selPat ? selPat.width * scale : tilePixelW;
+        const selH = selPat ? selPat.height * scale : tilePixelH;
         ctx.strokeStyle = "rgba(255, 220, 50, 0.9)";
         ctx.lineWidth = 2;
-        ctx.strokeRect(selTileCol * tilePixelW, selTileRow * tilePixelH, tilePixelW, tilePixelH);
+        ctx.strokeRect(selTileCol * tilePixelW, selTileRow * tilePixelH, selW, selH);
     }
 
     // Hover preview
     if (inBounds(hoverCol, hoverRow) && !panning) {
         if (mode === "select") {
             if (!(hoverCol === selTileCol && hoverRow === selTileRow)) {
+                const hoverCell = grid.cells[hoverRow]?.[hoverCol];
+                const hoverPat = hoverCell ? app.state.vocabulary.patterns[hoverCell.patternId] : null;
+                const hoverW = hoverPat ? hoverPat.width * scale : tilePixelW;
+                const hoverH = hoverPat ? hoverPat.height * scale : tilePixelH;
                 ctx.strokeStyle = "rgba(255, 200, 50, 0.4)";
                 ctx.lineWidth = 2;
-                ctx.strokeRect(hoverCol * tilePixelW, hoverRow * tilePixelH, tilePixelW, tilePixelH);
+                ctx.strokeRect(hoverCol * tilePixelW, hoverRow * tilePixelH, hoverW, hoverH);
             }
         } else {
             const selId = app.state.ui.selectedPatternId;
@@ -676,7 +700,8 @@ export function render() {
 
                 ctx.strokeStyle = "rgba(91, 155, 213, 0.6)";
                 ctx.lineWidth = 2;
-                ctx.strokeRect(hoverCol * tilePixelW, hoverRow * tilePixelH, tilePixelW, tilePixelH);
+                ctx.strokeRect(hoverCol * tilePixelW, hoverRow * tilePixelH,
+                               selPat.width * scale, selPat.height * scale);
             }
         }
     }
@@ -685,6 +710,8 @@ export function render() {
 
     document.getElementById("grid-cols").value = grid.width;
     document.getElementById("grid-rows").value = grid.height;
+    document.getElementById("grid-tile-width").value = grid.tileWidth;
+    document.getElementById("grid-tile-height").value = grid.tileHeight;
 }
 
 export function handleKeyboard(e) {
@@ -717,8 +744,8 @@ export function exportPNG() {
 
                 // Render pattern to a temp canvas at 1:1 scale
                 const tmp = document.createElement("canvas");
-                tmp.width = tw;
-                tmp.height = th;
+                tmp.width = pat.width;
+                tmp.height = pat.height;
                 const tmpCtx = tmp.getContext("2d");
                 tmpCtx.imageSmoothingEnabled = false;
                 for (let pr = 0; pr < pat.height; pr++) {
@@ -734,7 +761,7 @@ export function exportPNG() {
                     }
                 }
 
-                drawTile(eCtx, tmp, c * tw, r * th, tw, th, cell.transform || 0);
+                drawTile(eCtx, tmp, c * tw, r * th, cell.transform || 0);
             }
         }
     }
