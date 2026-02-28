@@ -599,8 +599,14 @@ function drawTile(targetCtx, cached, x, y, transform) {
     const w = cached.width;
     const h = cached.height;
 
+    // Rotated bounding box dimensions (swap for odd rotations)
+    const bw = (rot === 1 || rot === 3) ? h : w;
+    const bh = (rot === 1 || rot === 3) ? w : h;
+
     targetCtx.save();
-    targetCtx.translate(x + w / 2, y + h / 2);
+    // Translate to center of the rotated bounding box so the
+    // top-left of the result aligns with (x, y) — Tetris-style
+    targetCtx.translate(x + bw / 2, y + bh / 2);
     if (rot === 1) targetCtx.rotate(Math.PI / 2);
     else if (rot === 2) targetCtx.rotate(Math.PI);
     else if (rot === 3) targetCtx.rotate(3 * Math.PI / 2);
@@ -669,8 +675,13 @@ export function render() {
     if (mode === "select" && selTileCol >= 0 && selTileRow >= 0) {
         const selCell = grid.cells[selTileRow]?.[selTileCol];
         const selPat = selCell ? app.state.vocabulary.patterns[selCell.patternId] : null;
-        const selW = selPat ? selPat.width * scale : tilePixelW;
-        const selH = selPat ? selPat.height * scale : tilePixelH;
+        let selW = tilePixelW, selH = tilePixelH;
+        if (selPat) {
+            const rot = (selCell.transform || 0) & 3;
+            const oddRot = (rot === 1 || rot === 3);
+            selW = (oddRot ? selPat.height : selPat.width) * scale;
+            selH = (oddRot ? selPat.width : selPat.height) * scale;
+        }
         ctx.strokeStyle = "rgba(255, 220, 50, 0.9)";
         ctx.lineWidth = 2;
         ctx.strokeRect(selTileCol * tilePixelW, selTileRow * tilePixelH, selW, selH);
@@ -682,8 +693,13 @@ export function render() {
             if (!(hoverCol === selTileCol && hoverRow === selTileRow)) {
                 const hoverCell = grid.cells[hoverRow]?.[hoverCol];
                 const hoverPat = hoverCell ? app.state.vocabulary.patterns[hoverCell.patternId] : null;
-                const hoverW = hoverPat ? hoverPat.width * scale : tilePixelW;
-                const hoverH = hoverPat ? hoverPat.height * scale : tilePixelH;
+                let hoverW = tilePixelW, hoverH = tilePixelH;
+                if (hoverPat) {
+                    const rot = (hoverCell.transform || 0) & 3;
+                    const oddRot = (rot === 1 || rot === 3);
+                    hoverW = (oddRot ? hoverPat.height : hoverPat.width) * scale;
+                    hoverH = (oddRot ? hoverPat.width : hoverPat.height) * scale;
+                }
                 ctx.strokeStyle = "rgba(255, 200, 50, 0.4)";
                 ctx.lineWidth = 2;
                 ctx.strokeRect(hoverCol * tilePixelW, hoverRow * tilePixelH, hoverW, hoverH);
